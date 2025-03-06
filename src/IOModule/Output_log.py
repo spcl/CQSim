@@ -204,12 +204,21 @@ class Output_log:
 
     # Add a new method for recording node state snapshots:
     def record_node_states(self, time, node_states):
-        """Record a snapshot of all node states"""
+        """Record a snapshot of all node states in a compact format"""
         idle_count = sum(1 for node in node_states if node['is_idle'])
         total_count = len(node_states)
         
+        # Instead of storing the entire node_states list, just store the essential information
+        # Create a compact representation of node states
+        # Format: List of idle node IDs and their idle times
+        idle_nodes = []
+        for node in node_states:
+            if node['is_idle']:
+                idle_nodes.append((node['node_id'], node['idle_time']))
+        
         self.node_state_log.file_open()
-        context = f"{time};{total_count};{idle_count};{str(node_states)}"
+        # Write only the time, counts, and the compact representation
+        context = f"{time};{total_count};{idle_count};{idle_nodes}"
         self.node_state_log.log_print(context, 1)
         self.node_state_log.file_close()
 

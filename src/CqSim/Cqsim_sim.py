@@ -320,6 +320,7 @@ class Cqsim_sim:
             self.start(job)
         return 1
     
+    # Enhanced sys_collect method in Cqsim_sim.py
     def sys_collect(self):
         temp_inter = 0
         if (len(self.event_seq) > 1):
@@ -340,7 +341,7 @@ class Cqsim_sim:
         total_nodes = self.module['node'].get_tot()
         
         # Calculate utilization
-        uti = (total_nodes - idle_nodes) * 1.0 / total_nodes
+        uti = (total_nodes - idle_nodes) * 1.0 / total_nodes if total_nodes > 0 else 0
         
         # Pass the information to the info collector
         temp_info = self.module['info'].info_collect(
@@ -354,7 +355,20 @@ class Cqsim_sim:
             total_nodes=total_nodes
         )
         
-        # NEW: Record node state data
+        # Record the idle periods if it's a monitoring event
+        if self.event_seq[0]['type'] == 2:
+            idle_periods = self.module['node'].get_idle_periods(self.currentTime)
+            # Only log if there are idle periods to record
+            if idle_periods:
+                for period in idle_periods:
+                    self.module['output'].record_node_idle(
+                        time=self.currentTime,
+                        node_id=period['node_id'],
+                        event='CURRENT',  # Current idle state
+                        idle_duration=period['duration']
+                    )
+        
+        # Record node state data (will now be more compact)
         node_states = self.module['node'].get_node_states(self.currentTime)
         self.module['output'].record_node_states(self.currentTime, node_states)
         
@@ -380,10 +394,20 @@ class Cqsim_sim:
         self.module['output'].print_sys_info()
         self.debug.debug(lvl=1)
         self.module['output'].print_result(self.module['job'])
-    
+
     def insert_event_monitor(self, start, end):
         if (not self.monitor):
             return -1
+        
+        # Calculate how many monitoring events to insert
+        # Increase this divisor for less frequent monitoring
+        monitor_divisor = 1  # Default: Use every monitor interval
+        
+        # For very large simulations or large node count, reduce monitoring frequency
+        # if you find the output files are still too large
+        if self.module['node'].get_tot() > 500:  # If more than 500 nodes
+            monitor_divisor = 5  # Only record every 5th interval
+        
         temp_num = start/self.monitor
         temp_num = int(temp_num)
         temp_time = temp_num*self.monitor
@@ -393,7 +417,10 @@ class Cqsim_sim:
         i = 0
         while (temp_time < end):
             if (temp_time>=start):
-                self.insert_event(2,temp_time,5,None)
-                self.debug.debug("  "+"Insert mon["+"5"+"] "+str(temp_time),4)
+                # Only insert monitoring event if it's a multiple of the divisor
+                if i % monitor_divisor == 0:
+                    self.insert_event(2,temp_time,5,None)
+                    self.debug.debug("  "+"Insert mon["+"5"+"] "+str(temp_time),4)
             temp_time += self.monitor
+            i += 1
         return

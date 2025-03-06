@@ -416,10 +416,13 @@ class Node_struc:
             i += 1
         return -1
     
-    def get_idle_periods(self):
-        """Return the recorded idle periods and current idle periods."""
+    def get_idle_periods(self, current_time):
+        """Return the recorded idle periods and current idle periods.
+        
+        Args:
+            current_time: The current simulation time
+        """
         current_idle_periods = []
-        current_time = time.time()  # Use simulation time instead in actual implementation
         
         # Include currently idle nodes
         for node_id, idle_start_time in self.node_idle_start_times.items():
