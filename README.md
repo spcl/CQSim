@@ -1,3 +1,6 @@
+# Fetching data from idle nodes in CQSim
+Our project makes a few changes, enabling us to fetch relevant statistics from the idle nodes. We are keen on find the underuitilisation and events where the idle nodes are free for a considerable amount of time.
+
 # CQSim - a discrete-event driven scheduling simulator
 CQSim is an open-source, discrete-event driven cluster scheduling simulator. It was originated from QSim, an discrete-event driven scheduling simulator developed for the production batch scheduler Cobalt deployed at Argonne Leadership Computing Facility in 2009 [3]. In 2011-2012, Qsim was evolved into CQSim by adding more functionalities and features. CQSim was originally developed by Dongxu Ren and Wei Tang (version 1.0), and later was improved by Xu Yang and Yuping Fan (master branch) [1,2], all under the supervision of Zhiling Lan.  
 

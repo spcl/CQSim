@@ -7,7 +7,6 @@ class Info_collect:
         self.myInfo = "Info Collect"
         self.alg_module = alg_module
         self.debug = debug
-        #self.sys_info = []
         
         self.debug.line(4," ")
         self.debug.line(4,"#")
@@ -21,30 +20,32 @@ class Info_collect:
             self.alg_module = alg_module
         if debug:
             self.debug = debug
-        #self.sys_info = []
         
-    def info_collect(self, time, event, uti, waitNum = -1, waitSize = -1, inter = -1.0, extend = None):
+    def info_collect(self, time, event, uti, waitNum = -1, waitSize = -1, inter = -1.0, extend = None, idle_nodes = -1, total_nodes = -1):
         self.debug.debug("* "+self.myInfo+" -- info_collect",5)
         event_date = time
-        temp_info = {'date': event_date, 'time': time, 'event': event, 'uti': uti, 'waitNum': waitNum, \
-                     'waitSize': waitSize, 'inter': inter, 'extend': extend}
+        
+        # Calculate additional resource utilization metrics
+        if idle_nodes == -1 and total_nodes == -1:
+            # Use provided utilization if specific node counts not available
+            idle_resources_pct = 100.0 - (uti * 100.0)
+        else:
+            idle_resources_pct = (idle_nodes * 100.0) / total_nodes
+        
+        temp_info = {
+            'date': event_date, 
+            'time': time, 
+            'event': event, 
+            'uti': uti, 
+            'waitNum': waitNum, 
+            'waitSize': waitSize, 
+            'inter': inter, 
+            'extend': extend,
+            # New metrics for resource underutilization analysis
+            'idle_nodes': idle_nodes,
+            'total_nodes': total_nodes,
+            'idle_pct': idle_resources_pct
+        }
+        
         self.debug.debug("   "+str(temp_info),4) 
-        #self.sys_info.append(temp_info)
         return temp_info
-    
-    '''
-    def info_analysis(self):
-        self.debug.debug("* "+self.myInfo+" -- info_analysis",5)
-        return 1
-    
-    
-    def get_info(self, index):
-        self.debug.debug("* "+self.myInfo+" -- get_info",6)
-        if index>=len(self.sys_info):
-            return None
-        return self.sys_info[index]
-    
-    def get_len(self):
-        self.debug.debug("* "+self.myInfo+" -- get_len",6)
-        return len(self.sys_info)
-    '''
