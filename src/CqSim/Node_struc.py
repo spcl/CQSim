@@ -69,6 +69,10 @@ class Node_struc:
             self.nodeStruc.append(tempInfo)
             i += 1
         nodeFile.close()
+
+        for node in self.nodeStruc:
+            self.node_idle_start_times[node['id']] = 0.0
+
         self.tot = len(self.nodeStruc)
         self.idle = self.tot
         self.avail = self.tot
