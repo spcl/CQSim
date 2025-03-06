@@ -33,12 +33,31 @@ def  cqsim_main(para_list):
     output_adapt = para_list['path_out'] + para_list['output'] + para_list['ext_ai']
     output_result = para_list['path_out'] + para_list['output'] + para_list['ext_jr']
     
-    # New output file for detailed utilization metrics
+    # New output files for node idle analysis
     ext_util = ".util"
-    output_util = para_list['path_out'] + para_list['output'] + ext_util
+    ext_node_idle = ".node_idle"
+    ext_node_state = ".node_state"
     
-    # Update the output dictionary to include the utilization file
-    output_fn = {'sys': output_sys, 'adapt': output_adapt, 'result': output_result, 'util': output_util}
+    output_util = para_list['path_out'] + para_list['output'] + ext_util
+    output_node_idle = para_list['path_out'] + para_list['output'] + ext_node_idle
+    output_node_state = para_list['path_out'] + para_list['output'] + ext_node_state
+    
+    # Update the output dictionary to include the new files
+    output_fn = {
+        'sys': output_sys, 
+        'adapt': output_adapt, 
+        'result': output_result, 
+        'util': output_util,
+        'node_idle': output_node_idle,
+        'node_state': output_node_state
+    }
+    
+    # # New output file for detailed utilization metrics
+    # ext_util = ".util"
+    # output_util = para_list['path_out'] + para_list['output'] + ext_util
+    
+    # # Update the output dictionary to include the utilization file
+    # output_fn = {'sys': output_sys, 'adapt': output_adapt, 'result': output_result, 'util': output_util}
     
     log_freq_int = para_list['log_freq']
     read_input_freq = para_list['read_input_freq']

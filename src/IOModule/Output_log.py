@@ -8,7 +8,8 @@ class Output_log:
         self.output_path = output
         self.sys_info_buf = []
         self.job_buf = []
-        self.utilization_buf = []  # New buffer for detailed utilization data
+        self.utilization_buf = []
+        self.node_idle_buf = []
         self.log_freq = log_freq
         self.reset_output()
     
@@ -40,7 +41,7 @@ class Output_log:
         self.job_result.file_close()
         self.job_result.reset(self.output_path['result'],1)
 
-        # New output file for detailed utilization metrics
+        # Utilization metrics output file
         self.util_result = Log_print.Log_print(self.output_path['util'],0)
         self.util_result.reset(self.output_path['util'],0)
         self.util_result.file_open()
@@ -49,6 +50,26 @@ class Output_log:
         self.util_result.log_print(header,1)
         self.util_result.file_close()
         self.util_result.reset(self.output_path['util'],1)
+
+        # NEW: Add output file for node idle data
+        self.node_idle_log = Log_print.Log_print(self.output_path['node_idle'],0)
+        self.node_idle_log.reset(self.output_path['node_idle'],0)
+        self.node_idle_log.file_open()
+        # Write header
+        header = "time;node_id;event;idle_duration"
+        self.node_idle_log.log_print(header,1)
+        self.node_idle_log.file_close()
+        self.node_idle_log.reset(self.output_path['node_idle'],1)
+        
+        # NEW: Add output file for node state snapshots
+        self.node_state_log = Log_print.Log_print(self.output_path['node_state'],0)
+        self.node_state_log.reset(self.output_path['node_state'],0)
+        self.node_state_log.file_open()
+        # Write header
+        header = "time;total_nodes;idle_nodes;node_states"
+        self.node_state_log.log_print(header,1)
+        self.node_state_log.file_close()
+        self.node_state_log.reset(self.output_path['node_state'],1)
 
     def print_sys_info(self, sys_info = None):
         if sys_info != None:
@@ -168,3 +189,48 @@ class Output_log:
         # Make sure we flush any pending utilization data when all jobs are processed
         if job_index == None:
             self.write_utilization_data()
+
+    def record_node_idle(self, time, node_id, event, idle_duration):
+        """Record a node idle period event"""
+        self.node_idle_buf.append({
+            'time': time,
+            'node_id': node_id,
+            'event': event,  # 'START' or 'END'
+            'duration': idle_duration
+        })
+        
+        if len(self.node_idle_buf) >= self.log_freq:
+            self.write_node_idle_data()
+
+    # Add a new method for recording node state snapshots:
+    def record_node_states(self, time, node_states):
+        """Record a snapshot of all node states"""
+        idle_count = sum(1 for node in node_states if node['is_idle'])
+        total_count = len(node_states)
+        
+        self.node_state_log.file_open()
+        context = f"{time};{total_count};{idle_count};{str(node_states)}"
+        self.node_state_log.log_print(context, 1)
+        self.node_state_log.file_close()
+
+    # Add a method to write the node idle data:
+    def write_node_idle_data(self):
+        """Write node idle period data to file"""
+        if len(self.node_idle_buf) == 0:
+            return
+            
+        self.node_idle_log.file_open()
+        sep_sign = ";"
+        for event in self.node_idle_buf:
+            context = ""
+            context += str(event['time'])
+            context += sep_sign
+            context += str(event['node_id'])
+            context += sep_sign
+            context += str(event['event'])
+            context += sep_sign
+            context += str(event['duration'])
+            
+            self.node_idle_log.log_print(context, 1)
+        self.node_idle_log.file_close()
+        self.node_idle_buf = []

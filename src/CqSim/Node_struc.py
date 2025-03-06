@@ -16,6 +16,10 @@ class Node_struc:
         self.idle = -1
         self.avail = -1
         
+        # NEW: Track idle time for each node
+        self.node_idle_start_times = {}  # node_id -> time when it became idle
+        self.node_idle_periods = []  # list of dicts with {node_id, start_time, end_time, duration}
+        
         self.debug.line(4," ")
         self.debug.line(4,"#")
         self.debug.debug("# "+self.myInfo,1)
@@ -136,13 +140,27 @@ class Node_struc:
         if self.is_available(proc_num) == 0:
             return 0
         i = 0
+        allocated_nodes = []
         for node in self.nodeStruc:
-            if node['state'] <0:
+            if node['state'] < 0:
+                # NEW: If this node was idle, record the idle period
+                if node['id'] in self.node_idle_start_times:
+                    idle_start_time = self.node_idle_start_times[node['id']]
+                    idle_duration = start - idle_start_time
+                    self.node_idle_periods.append({
+                        'node_id': node['id'],
+                        'start_time': idle_start_time,
+                        'end_time': start,
+                        'duration': idle_duration
+                    })
+                    # Remove from tracking dictionary
+                    del self.node_idle_start_times[node['id']]
+                
                 node['state'] = job_index
                 node['start'] = start
                 node['end'] = end
+                allocated_nodes.append(node['id'])
                 i += 1
-            #self.debug.debug("  yyy: "+str(node['state'])+"   "+str(job_index),4)
             if (i>=proc_num):
                 break
         self.idle -= proc_num
@@ -166,12 +184,14 @@ class Node_struc:
     def node_release(self, job_index, end):
         #self.debug.debug("* "+self.myInfo+" -- node_release",5)
         i = 0
+        released_nodes = []
         for node in self.nodeStruc:
-            #self.debug.debug("  xxx: "+str(node['state'])+"   "+str(job_index),4)
             if node['state'] == job_index:
                 node['state'] = -1
                 node['start'] = -1
                 node['end'] = -1
+                self.node_idle_start_times[node['id']] = end
+                released_nodes.append(node['id'])
                 i += 1
         if i <= 0:
             self.debug.debug("  Release Fail!",4)
@@ -395,3 +415,37 @@ class Node_struc:
                     return i
             i += 1
         return -1
+    
+    def get_idle_periods(self):
+        """Return the recorded idle periods and current idle periods."""
+        current_idle_periods = []
+        current_time = time.time()  # Use simulation time instead in actual implementation
+        
+        # Include currently idle nodes
+        for node_id, idle_start_time in self.node_idle_start_times.items():
+            current_idle_periods.append({
+                'node_id': node_id,
+                'start_time': idle_start_time,
+                'end_time': current_time,
+                'duration': current_time - idle_start_time
+            })
+        
+        return self.node_idle_periods + current_idle_periods
+
+    # Add method to get node state data:
+    def get_node_states(self, current_time):
+        """Return the current state of all nodes."""
+        node_states = []
+        for node in self.nodeStruc:
+            is_idle = node['state'] < 0
+            idle_time = 0
+            if is_idle and node['id'] in self.node_idle_start_times:
+                idle_time = current_time - self.node_idle_start_times[node['id']]
+            
+            node_states.append({
+                'node_id': node['id'],
+                'is_idle': is_idle,
+                'idle_time': idle_time,
+                'state': node['state']
+            })
+        return node_states

@@ -178,7 +178,25 @@ class Cqsim_sim:
     
     def finish(self, job_index):
         self.debug.debug("[Finish]  "+str(job_index),3)
-        self.module['node'].node_release(job_index,self.currentTime)
+        
+        # Before releasing nodes, get the node IDs that will be released
+        nodes_to_release = []
+        for node in self.module['node'].nodeStruc:
+            if node['state'] == job_index:
+                nodes_to_release.append(node['id'])
+        
+        # Now release the nodes
+        self.module['node'].node_release(job_index, self.currentTime)
+        
+        # NEW: Record that these nodes became idle
+        for node_id in nodes_to_release:
+            self.module['output'].record_node_idle(
+                time=self.currentTime,
+                node_id=node_id,
+                event='START',  # Started being idle
+                idle_duration=0  # Just became idle
+            )
+        
         self.module['job'].job_finish(job_index)
         self.module['output'].print_result(self.module['job'], job_index)
         self.module['job'].remove_job_from_dict(job_index)
@@ -186,10 +204,45 @@ class Cqsim_sim:
     
     def start(self, job_index):
         self.debug.debug("[Start]  "+str(job_index),3)
-        self.module['node'].node_allocate(self.module['job'].job_info(job_index)['reqProc'], job_index,\
-         self.currentTime, self.currentTime + self.module['job'].job_info(job_index)['reqTime'])
+        
+        # Before allocation, identify which nodes are currently idle (to know which will be allocated)
+        idle_nodes_before = []
+        for node in self.module['node'].nodeStruc:
+            if node['state'] < 0:
+                idle_nodes_before.append(node['id'])
+        
+        # Now allocate nodes
+        self.module['node'].node_allocate(
+            self.module['job'].job_info(job_index)['reqProc'], 
+            job_index,
+            self.currentTime, 
+            self.currentTime + self.module['job'].job_info(job_index)['run']
+        )
+        
+        # After allocation, identify which nodes are still idle
+        idle_nodes_after = []
+        for node in self.module['node'].nodeStruc:
+            if node['state'] < 0:
+                idle_nodes_after.append(node['id'])
+        
+        # The allocated nodes are those that were idle before but not after
+        allocated_nodes = [node_id for node_id in idle_nodes_before if node_id not in idle_nodes_after]
+        
+        # NEW: Record that these nodes stopped being idle
+        for node_id in allocated_nodes:
+            # Find out how long the node was idle
+            idle_start_time = self.module['node'].node_idle_start_times.get(node_id, None)
+            if idle_start_time is not None:
+                idle_duration = self.currentTime - idle_start_time
+                self.module['output'].record_node_idle(
+                    time=self.currentTime,
+                    node_id=node_id,
+                    event='END',  # Stopped being idle
+                    idle_duration=idle_duration
+                )
+        
         self.module['job'].job_start(job_index, self.currentTime)
-        self.insert_event(1,self.currentTime+self.module['job'].job_info(job_index)['run'],1,[2,job_index])
+        self.insert_event(1, self.currentTime + self.module['job'].job_info(job_index)['run'], 1, [2, job_index])
         return
     
     def score_calculate(self):
@@ -282,14 +335,14 @@ class Cqsim_sim:
         elif (self.event_seq[0]['type'] == 2):
             event_code='Q'
             
-        # Get the exact counts of idle and total nodes for better utilization analysis
+        # Get the exact counts of idle and total nodes
         idle_nodes = self.module['node'].get_idle()
         total_nodes = self.module['node'].get_tot()
         
-        # Calculate utilization for consistency with existing methods
+        # Calculate utilization
         uti = (total_nodes - idle_nodes) * 1.0 / total_nodes
         
-        # Pass more detailed information to the info collector
+        # Pass the information to the info collector
         temp_info = self.module['info'].info_collect(
             time=self.currentTime, 
             event=event_code,
@@ -300,7 +353,11 @@ class Cqsim_sim:
             idle_nodes=idle_nodes,
             total_nodes=total_nodes
         )
-            
+        
+        # NEW: Record node state data
+        node_states = self.module['node'].get_node_states(self.currentTime)
+        self.module['output'].record_node_states(self.currentTime, node_states)
+        
         self.print_sys_info(temp_info)
         return
     
