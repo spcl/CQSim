@@ -12,6 +12,8 @@ class Node_struc_SWF(Class_Node_struc.Node_struc):
         #self.debug.debug("* "+self.myInfo+" -- node_allocate",5)
         if self.is_available(proc_num) == 0:
             return 0
+        
+        # For SWF, we don't track individual nodes, just count allocated
         self.idle -= proc_num
         self.avail = self.idle
         temp_job_info = {'job':job_index, 'end': end, 'node': proc_num}
@@ -27,23 +29,50 @@ class Node_struc_SWF(Class_Node_struc.Node_struc):
             
         if (is_done == 0):
             self.job_list.append(temp_job_info)
-        '''
-        self.debug.line(2,"...")
-        for job in self.job_list:
-            self.debug.debug(job['job'],2)
-        self.debug.line(2,"...")
-        '''
+        
+        # Notify idle tracker about allocated nodes
+        if self.idle_tracker:
+            # Since SWF doesn't track individual nodes, we'll create synthetic node IDs
+            # We'll allocate nodes starting from lowest ID
+            allocated_nodes = 0
+            for node in self.nodeStruc:
+                if node['state'] < 0:  # Node is idle
+                    node['state'] = job_index
+                    node['start'] = start
+                    node['end'] = end
+                    
+                    # Notify idle tracker of node state change
+                    self.idle_tracker.node_state_change(node['id'], 1, start)
+                    
+                    allocated_nodes += 1
+                    if allocated_nodes >= proc_num:
+                        break
+            
+            # Record idle count after allocation
+            self.idle_tracker.record_idle_count(start)
+        
         self.debug.debug("  Allocate"+"["+str(job_index)+"]"+" Req:"+str(proc_num)+" Avail:"+str(self.avail)+" ",4)
         return 1
         
     def node_release(self, job_index, end):
         #self.debug.debug("* "+self.myInfo+" -- node_release",5)
-        '''
-        self.debug.line(2,"...")
-        for job in self.job_list:
-            self.debug.debug(job['job'],2)
-        self.debug.line(2,"...")
-        '''
+        
+        # Find which nodes are associated with this job
+        nodes_to_release = []
+        for node in self.nodeStruc:
+            if node['state'] == job_index:
+                nodes_to_release.append(node['id'])
+                node['state'] = -1
+                node['start'] = -1
+                node['end'] = -1
+        
+        # Notify idle tracker about released nodes
+        if self.idle_tracker:
+            for node_id in nodes_to_release:
+                self.idle_tracker.node_state_change(node_id, 0, end)
+            
+            # Record idle count after release
+            self.idle_tracker.record_idle_count(end)
             
         temp_node = 0
         j = 0
@@ -53,9 +82,11 @@ class Node_struc_SWF(Class_Node_struc.Node_struc):
                 temp_node = self.job_list[j]['node']
                 break
             j += 1
+            
         self.idle += temp_node
         self.avail = self.idle
         self.job_list.pop(j)
+        
         self.debug.debug("  Release"+"["+str(job_index)+"]"+" Req:"+str(temp_node)+" Avail:"+str(self.avail)+" ",4)
         return 1
         

@@ -5,9 +5,10 @@ import re
 __metaclass__ = type
 
 class Node_struc:
-    def __init__(self, debug=None):
+    def __init__(self, debug=None, idle_tracker=None):
         self.myInfo = "Node Structure"
         self.debug = debug
+        self.idle_tracker = idle_tracker  # Reference to the IdleTracker instance
         self.nodeStruc = []
         self.job_list = []
         self.predict_node = []
@@ -21,9 +22,11 @@ class Node_struc:
         self.debug.debug("# "+self.myInfo,1)
         self.debug.line(4,"#")
         
-    def reset(self, debug=None):
+    def reset(self, debug=None, idle_tracker=None):
         #self.debug.debug("* "+self.myInfo+" -- reset",5)
         self.debug = debug
+        if idle_tracker:
+            self.idle_tracker = idle_tracker
         self.nodeStruc = []
         self.job_list = []
         self.predict_node = []
@@ -69,6 +72,11 @@ class Node_struc:
         self.idle = self.tot
         self.avail = self.tot
         self.debug.debug("  Tot:"+str(self.tot)+" Idle:"+str(self.idle)+" Avail:"+str(self.avail)+" ",4)
+        
+        # Initialize the idle tracker with all nodes
+        if self.idle_tracker:
+            self.idle_tracker.initialize_nodes(self.nodeStruc)
+        
         return
         
     def import_node_config (self, config_file):
@@ -111,6 +119,10 @@ class Node_struc:
         self.idle = self.tot
         self.avail = self.tot
         
+        # Initialize the idle tracker with all nodes
+        if self.idle_tracker:
+            self.idle_tracker.initialize_nodes(self.nodeStruc)
+        
     def is_available(self, proc_num):
         #self.debug.debug("* "+self.myInfo+" -- is_available",6)
         result = 0
@@ -137,13 +149,18 @@ class Node_struc:
             return 0
         i = 0
         for node in self.nodeStruc:
-            if node['state'] <0:
+            if node['state'] < 0:
                 node['state'] = job_index
                 node['start'] = start
                 node['end'] = end
+                
+                # Notify idle tracker of node state change (0 for idle, 1 for busy)
+                if self.idle_tracker:
+                    self.idle_tracker.node_state_change(node['id'], 1, start)
+                
                 i += 1
             #self.debug.debug("  yyy: "+str(node['state'])+"   "+str(job_index),4)
-            if (i>=proc_num):
+            if (i >= proc_num):
                 break
         self.idle -= proc_num
         self.avail = self.idle
@@ -159,6 +176,10 @@ class Node_struc:
             
         if (is_done == 0):
             self.job_list.append(temp_job_info)
+        
+        # Record the current idle count after allocation
+        if self.idle_tracker:
+            self.idle_tracker.record_idle_count(start)
             
         self.debug.debug("  Allocate"+"["+str(job_index)+"]"+" Req:"+str(proc_num)+" Avail:"+str(self.avail)+" ",4)
         return 1
@@ -172,6 +193,11 @@ class Node_struc:
                 node['state'] = -1
                 node['start'] = -1
                 node['end'] = -1
+                
+                # Notify idle tracker of node state change (0 for idle, 1 for busy)
+                if self.idle_tracker:
+                    self.idle_tracker.node_state_change(node['id'], 0, end)
+                
                 i += 1
         if i <= 0:
             self.debug.debug("  Release Fail!",4)
@@ -185,6 +211,11 @@ class Node_struc:
                 break
             j += 1
         self.job_list.pop(j)
+        
+        # Record the current idle count after release
+        if self.idle_tracker:
+            self.idle_tracker.record_idle_count(end)
+            
         self.debug.debug("  Release"+"["+str(job_index)+"]"+" Req:"+str(i)+" Avail:"+str(self.avail)+" ",4)
         return 1
         

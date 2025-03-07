@@ -4,12 +4,12 @@ import IOModule.Debug_log as Class_Debug_log
 import IOModule.Output_log as Class_Output_log
 
 import CqSim.Job_trace as Class_Job_trace
-#import CqSim.Node_struc as Class_Node_struc
 import CqSim.Backfill as Class_Backfill
 import CqSim.Start_window as Class_Start_window
 import CqSim.Basic_algorithm as Class_Basic_algorithm
 import CqSim.Info_collect as Class_Info_collect
 import CqSim.Cqsim_sim as Class_Cqsim_sim
+import CqSim.Idle_Tracker as Class_IdleTracker
 
 import Extend.SWF.Filter_job_SWF as filter_job_ext
 import Extend.SWF.Filter_node_SWF as filter_node_ext
@@ -36,6 +36,9 @@ def  cqsim_main(para_list):
     output_fn = {'sys':output_sys, 'adapt':output_adapt, 'result':output_result}
     log_freq_int = para_list['log_freq']
     read_input_freq = para_list['read_input_freq']
+    
+    # Setup idle tracker output path
+    idle_output_path = para_list['path_out'] + para_list['output'] + "_idle"
 
     if not os.path.exists(para_list['path_fmt']):
         os.makedirs(para_list['path_fmt'])
@@ -67,6 +70,10 @@ def  cqsim_main(para_list):
     module_filter_node.output_node_data()
     module_filter_node.output_node_config()
     
+    # Idle Tracker
+    print(".................... Idle Tracker")
+    module_idle_tracker = Class_IdleTracker.IdleTracker(output_path=idle_output_path, debug=module_debug)
+    
     # Job Trace
     print(".................... Job Trace")
     module_job_trace = Class_Job_trace.Job_trace(start=para_list['start'],num=para_list['read_num'],anchor=para_list['anchor'],density=para_list['cluster_fraction'],read_input_freq=para_list['read_input_freq'],debug=module_debug)
@@ -76,7 +83,7 @@ def  cqsim_main(para_list):
     
     # Node Structure
     print(".................... Node Structure")
-    module_node_struc = node_struc_ext.Node_struc_SWF(debug=module_debug)
+    module_node_struc = node_struc_ext.Node_struc_SWF(debug=module_debug, idle_tracker=module_idle_tracker)
     module_node_struc.import_node_file(save_name_n)
     module_node_struc.import_node_config(config_name_n)
     
@@ -103,7 +110,8 @@ def  cqsim_main(para_list):
     # Cqsim Simulator
     print(".................... Cqsim Simulator")
     module_list = {'job':module_job_trace,'node':module_node_struc,'backfill':module_backfill,\
-                   'win':module_win,'alg':module_alg,'info':module_info_collect, 'output':module_output_log}
+                   'win':module_win,'alg':module_alg,'info':module_info_collect, 'output':module_output_log,\
+                   'idle_tracker':module_idle_tracker}
     module_sim = Class_Cqsim_sim.Cqsim_sim(module=module_list, debug=module_debug, monitor = para_list['monitor'])
     module_sim.cqsim_sim()
     #module_debug.end_debug()

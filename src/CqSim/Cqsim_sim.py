@@ -63,6 +63,12 @@ class Cqsim_sim:
         self.insert_event_extend()
         self.scan_event()
         self.print_result()
+        
+        # Finalize the idle tracker at the end of simulation
+        if 'idle_tracker' in self.module:
+            self.module['idle_tracker'].finish_simulation(self.currentTime)
+            self.module['idle_tracker'].write_results()
+            
         self.debug.debug("------ Simulating Done!",2) 
         self.debug.debug(lvl=1) 
         return
@@ -261,6 +267,11 @@ class Cqsim_sim:
         self.alg_adapt()
         self.window_adapt()
         self.print_adapt(None)
+        
+        # Record idle count at monitor events
+        if 'idle_tracker' in self.module:
+            self.module['idle_tracker'].record_idle_count(self.currentTime)
+            
         return
     
     def event_extend(self, para_in = None):
@@ -374,21 +385,6 @@ class Cqsim_sim:
     
     def sys_collect(self):
         #self.debug.debug("# "+self.myInfo+" -- sys_collect",5) 
-        '''
-        temp_inter = 0
-        if (self.event_pointer+1<len(self.event_seq)):
-            temp_inter = self.event_seq[self.event_pointer+1]['time'] - self.currentTime
-        temp_size = 0
-        
-        event_code=None
-        if (self.event_seq[self.event_pointer]['type'] == 1):
-            if (self.event_seq[self.event_pointer]['para'][0] == 1):   
-                event_code='S'
-            elif(self.event_seq[self.event_pointer]['para'][0] == 2):   
-                event_code='E'
-        elif (self.event_seq[self.event_pointer]['type'] == 2):
-            event_code='Q'
-        '''
         temp_inter = 0
         if (len(self.event_seq) > 1):
             temp_inter = self.event_seq[1]['time'] - self.currentTime
@@ -433,4 +429,3 @@ class Cqsim_sim:
         self.module['output'].print_sys_info()
         self.debug.debug(lvl=1)
         self.module['output'].print_result(self.module['job'])
-        
